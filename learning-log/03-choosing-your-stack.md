@@ -80,3 +80,21 @@ Redis acts as a high-performance, in-memory data store that effectively executes
 
 * **The Caching Layer:** It stores hot, frequently requested read data (like our public job board listings) in system RAM so our application doesn't have to constantly hit PostgreSQL for repetitive requests. This is utilized in **Module 9 (Caching)**.
 * **The Job Queue Backbone:** It operates as the lightning-fast message broker and state manager for **BullMQ**, keeping track of active background queues, worker balances, and deferred tasks. This is utilized in **Module 13 (Background Workers)**.
+
+## Quick Quiz
+
+### 1. True or false: TypeScript's types check the actual data in an HTTP request body at runtime.
+**False.** TypeScript types are entirely a compile-time safety contract and are completely erased before your JavaScript executes on Node.js. They do not check or protect your server from actual data arriving over the network at runtime.
+
+### 2. On the framework axis, which is the most "batteries-included" of Express, Fastify, NestJS?
+**NestJS.** It is a heavily opinionated framework that enforces a rigid architectural structure out of the box using modules, controllers, and dependency injection patterns.
+
+### 3. Which database-access approach is most likely to hide an N+1 query — raw SQL, query builder, or ORM?
+**ORM (Object-Relational Mapper).** Because full ORMs abstract tables away behind native objects, they make it easy to inadvertently loop through related records and trigger dozens of hidden database queries behind the scenes without the developer realizing it.
+
+### 4. Zod runs at compile time or at runtime?
+**Runtime.** Zod acts as a security guard at your API gate, actively parsing and validating incoming network bytes at execution time while the server is running.
+
+### 5. Name the two roles Redis plays in this stack.
+1. **The Caching Layer:** Storing hot, frequently read data in system RAM to avoid repetitive hits to the primary database.
+2. **The Job Queue Backbone:** Serving as the rapid message broker and state manager for background workers managed by BullMQ.
