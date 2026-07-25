@@ -1,0 +1,32 @@
+# Learning Log 07: Health Check Endpoint
+
+## Core Reflections
+
+1. **Architectural Placement of `/health`**  
+   The health check is infrastructure-level code, not a business feature. It describes the health of the Node.js process itself, independent of domain entities like companies, jobs, or users. Wiring it directly in `src/app.ts` ensures it loads early, stays cleanly decoupled from domain modules, and remains accessible regardless of feature route registrations.
+
+2. **The Hazard of Database Checks in Liveness Handlers**  
+   If a database `SELECT 1` query is added to a liveness probe and the database encounters a transient issue or outage:
+   * **Step 1:** The `/health` route fails and returns an HTTP `500` error.
+   * **Step 2:** The container orchestrator (e.g., Kubernetes, Docker) misinterprets this as a crash or hang of the application process itself.
+   * **Step 3:** The orchestrator forcibly terminates and restarts the application container.
+   * **Step 4:** The new container starts up, attempts to run the health check, fails again due to the down database, and enters a continuous **CrashLoopBackOff** restart cycle.
+   * **Result:** In-flight HTTP requests and active connections are abruptly killed, degrading application availability far beyond what a temporary database outage would have caused on its own.
+
+3. **Liveness vs. Readiness Probes**  
+   * **Liveness Probe (`GET /health`):** Verifies that the Node.js event loop is running and accepting HTTP connections. It executes zero dependency checks.
+   * **Readiness Probe (`GET /ready`):** Verifies that external dependencies (PostgreSQL, Redis, migrations) are fully initialized and reachable so the app can safely serve user traffic.
+   * *Status:* We built the **liveness probe** in this chapter. The readiness probe will be built in **Chapter 72**.
+
+---
+
+## Quick Quiz
+
+### 1. A load balancer checks `GET /health` on each instance every five seconds. Instance A returns 200. Instance B returns 503. What does the load balancer do — and what would happen if there were no `/health` route at all?
+**Answer:** The load balancer immediately stops sending new user traffic to Instance B and routes all incoming requests to Instance A. Without a `/health` route, the load balancer would have to rely on basic TCP checks or past request history, potentially routing live traffic to an unresponsive process and causing `connection refused` errors for users.
+
+### 2. Your infrastructure team adds a CDN in front of the service that caches all GET responses for 30 seconds to reduce load. What specific problem does this create for the `/health` endpoint — and what field in the response body would expose it?
+**Answer:** Caching causes the CDN to serve stale `200 OK` responses even if the backend Node process crashes during those 30 seconds. The **`timestamp`** (and stagnant `uptime`) field in the response body exposes this issue, as repeated probes would receive an un-updated time string. *(Fix: Set `Cache-Control: no-cache, no-store` headers on infrastructure endpoints).*
+
+### 3. A teammate suggests adding a database `SELECT 1` to the health check "so we know the whole stack is healthy." What specific failure mode does that introduce? How would you address the underlying concern differently?
+**Answer:** It introduces a cascading failure where a database hiccup triggers process termination and continuous container restarts. To address the concern correctly, keep `/health` as a lightweight liveness probe and implement a separate `/ready` endpoint that checks database/Redis connections specifically to pause traffic routing without restarting the container.
